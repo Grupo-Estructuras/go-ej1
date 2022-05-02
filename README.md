@@ -18,3 +18,9 @@ Además se pueden pasar los siguientes parametros en consola:
 El repositorio ya incluye todas los modulos externos utilizado en la carpeta vendo. Por lo tanto se puede ejecutar directamente con ```go run .``` o compilar con ```go build``` y ejecutando el binario resultante.
 
 Es importante mencionar que el grafo generado es en formato de una página web y requiere que por defecto sea configurado un navegador que permita la ejecución de código Javascript para la visualización. En caso contrario también existe la opción de abrir el archivo manualmente después de la ejecución con un programa adecuado (el nombre y dirección del archivo son configurables).
+## Organización del repositorio
+- No se hace push directo sobre main
+- Para cada nueva función se crea un branch con nombre "feature/<funcion>"
+- Para arreglar un bug se crea un branch con nombre "bugfix/<bug>"
+
+  Cada mergerequest debe ser aprobado por al menos una persona (que no es el autor). Antes de un merge se actualiza CHANGELOG.md
