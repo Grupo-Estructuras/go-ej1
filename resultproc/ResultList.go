@@ -89,7 +89,7 @@ func (resl *ResultList) Graph(htmlname string) error {
 		charts.WithDataZoomOpts(opts.DataZoom{
 			Type:  "slider",
 			Start: 0,
-			End:   50,
+			End:   100,
 		}),
 		charts.WithInitializationOpts(opts.Initialization{
 			Width:  "1920px",
@@ -98,8 +98,8 @@ func (resl *ResultList) Graph(htmlname string) error {
 	)
 
 	l.Trace().Msg("Fill with data")
-	bar.SetXAxis(resl.getLanguageList()).
-		AddSeries("Lenguajes tiobe", resl.getBars())
+	bar.SetXAxis(resl.getLanguageList()[0:10]).
+		AddSeries("Lenguajes tiobe", resl.getBars()[0:10])
 
 	l.Trace().Str("html-file", htmlname).Msg("Create html file")
 	f, err := os.Create(htmlname)
