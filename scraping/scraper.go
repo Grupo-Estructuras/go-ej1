@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"webscraping/common"
 
 	"github.com/rs/zerolog"
@@ -21,6 +23,7 @@ type Scraperconfig struct {
 	Tiobesiteformat  string            `json:"tiobe_site_format" yaml:"tiobe_site_format"`
 	Githubsiteformat string            `json:"github_site_format" yaml:"github_site_format"`
 	Aliases          map[string]string `json:"aliases" yaml:"aliases"`
+	RetryDelaysMs    []int             `json:"retry_delays_ms" yaml:"retry_delays_ms"`
 }
 
 func GetDefaultScraperConfig(logger zerolog.Logger) Scraperconfig {
@@ -30,6 +33,7 @@ func GetDefaultScraperConfig(logger zerolog.Logger) Scraperconfig {
 		Tiobesiteformat:  "https://www.tiobe.com/tiobe-index/",
 		Githubsiteformat: "https://github.com/topics/%v",
 		Aliases:          map[string]string{"C++": "cpp", "C#": "csharp", "Delphi/Object Pascal": "delphi", "Classic Visual Basic": "visual-basic"},
+		RetryDelaysMs:    []int{300, 600, 1200},
 	}
 }
 
@@ -41,6 +45,24 @@ func (sc *Scraper) ScrapeTiobe() ([]string, error) {
 	if err != nil {
 		l.Error().Err(err).Msg("Could not access tiobe!")
 		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		for _, delay := range sc.Config.RetryDelaysMs {
+			l.Warn().Int("Error code", response.StatusCode).Int("Delay", delay).Msg("Got error code. Retrying in...")
+			time.Sleep(time.Millisecond * time.Duration(delay))
+			response, err = http.Get(sc.Config.Tiobesiteformat)
+			if err != nil {
+				l.Error().Err(err).Msg("Could not access tiobe!")
+				return nil, err
+			}
+			if response.StatusCode == http.StatusOK {
+				break
+			}
+		}
+	}
+	if response.StatusCode != http.StatusOK {
+		l.Error().Int("StatusCode", response.StatusCode).Msg("Could not access tiobe after retries!")
+		return nil, common.NewStatusCodeError(response.StatusCode)
 	}
 	l.Trace().Str("url", sc.Config.Tiobesiteformat).Msgf("Reading entire body in to string")
 	content, err := io.ReadAll(response.Body)
@@ -118,48 +140,94 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 	rtopicnumber := regexp.MustCompile(`\d+(,\d*)*`)
 
 	var lastError error
+	var errMutex sync.Mutex
+	var mapMutex sync.Mutex
+	var wg sync.WaitGroup
 	for _, lang := range languages {
-		url := fmt.Sprintf(sc.Config.Githubsiteformat, lang)
-		l.Trace().Str("url", url).Msgf("Making HTTP request to github")
-		response, err := http.Get(url)
-		if err != nil {
-			l.Error().Err(err).Msg("Could not access github! Skipping...")
-			lastError = err
-			continue
-		}
-		l.Trace().Msg("Reading all content in to string")
-		content, err := io.ReadAll(response.Body)
-		if err != nil {
-			l.Error().Err(err).Msg("Could not read all from body! Skipping...")
-			lastError = err
-			continue
-		}
-		l.Trace().Msg("Closing reader")
-		response.Body.Close()
-		l.Trace().Msg("Regex find topic line")
-		content = rtopicLine.Find(content)
-		if content == nil {
-			err := common.NewParseError("topic line")
-			l.Error().Err(err).Msg("Could not find topic line! Skipping...")
-			lastError = err
-			continue
-		}
-		l.Trace().Msg("Regex find topic number")
-		content = rtopicnumber.Find(content)
-		if content == nil {
-			err := common.NewParseError("topic number")
-			l.Error().Err(err).Msg("Could not find topic number! Skipping...")
-			lastError = err
-			continue
-		}
-		l.Trace().Msg("Parsing number")
-		num, err := strconv.ParseInt(strings.ReplaceAll(string(content), ",", ""), 10, 32)
-		if err != nil {
-			l.Error().Err(err).Msg("Could not parse number! Skipping...")
-			lastError = err
-			continue
-		}
-		ret[lang] = int32(num)
+		wg.Add(1)
+		lang := lang
+
+		go func() {
+			defer wg.Done()
+			url := fmt.Sprintf(sc.Config.Githubsiteformat, lang)
+			l.Trace().Str("url", url).Msgf("Making HTTP request to github")
+			response, err := http.Get(url)
+			if err != nil {
+				l.Error().Err(err).Msg("Could not access github! Skipping...")
+				errMutex.Lock()
+				lastError = err
+				errMutex.Unlock()
+				return
+			}
+			if response.StatusCode != http.StatusOK {
+				for _, delay := range sc.Config.RetryDelaysMs {
+					l.Warn().Int("Error code", response.StatusCode).Int("Delay", delay).Msg("Got error code. Retrying in...")
+					time.Sleep(time.Millisecond * time.Duration(delay))
+					response, err = http.Get(sc.Config.Tiobesiteformat)
+					if err != nil {
+						l.Error().Err(err).Msg("Could not access github!")
+						errMutex.Lock()
+						lastError = err
+						errMutex.Unlock()
+						return
+					}
+					if response.StatusCode == http.StatusOK {
+						break
+					}
+				}
+			}
+			if response.StatusCode != http.StatusOK {
+				l.Error().Int("StatusCode", response.StatusCode).Msg("Could not access github after retries!")
+				errMutex.Lock()
+				lastError = common.NewStatusCodeError(response.StatusCode)
+				errMutex.Unlock()
+				return
+			}
+			l.Trace().Msg("Reading all content in to string")
+			content, err := io.ReadAll(response.Body)
+			if err != nil {
+				l.Error().Err(err).Msg("Could not read all from body! Skipping...")
+				errMutex.Lock()
+				lastError = err
+				errMutex.Unlock()
+				return
+			}
+			l.Trace().Msg("Closing reader")
+			response.Body.Close()
+			l.Trace().Msg("Regex find topic line")
+			content = rtopicLine.Find(content)
+			if content == nil {
+				err := common.NewParseError("topic line")
+				l.Error().Err(err).Msg("Could not find topic line! Skipping...")
+				errMutex.Lock()
+				lastError = err
+				errMutex.Unlock()
+				return
+			}
+			l.Trace().Msg("Regex find topic number")
+			content = rtopicnumber.Find(content)
+			if content == nil {
+				err := common.NewParseError("topic number")
+				l.Error().Err(err).Msg("Could not find topic number! Skipping...")
+				errMutex.Lock()
+				lastError = err
+				errMutex.Unlock()
+				return
+			}
+			l.Trace().Msg("Parsing number")
+			num, err := strconv.ParseInt(strings.ReplaceAll(string(content), ",", ""), 10, 32)
+			if err != nil {
+				l.Error().Err(err).Msg("Could not parse number! Skipping...")
+				errMutex.Lock()
+				lastError = err
+				errMutex.Unlock()
+				return
+			}
+			mapMutex.Lock()
+			ret[lang] = int32(num)
+			mapMutex.Unlock()
+		}()
 	}
+	wg.Wait()
 	return ret, lastError
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"time"
 	"webscraping/fileconfig"
 	"webscraping/resultproc"
 	"webscraping/scraping"
@@ -28,6 +29,7 @@ type applicationConfig struct {
 }
 
 func main() {
+	start := time.Now()
 	var app application
 
 	loglevel := flag.StringP("loglevel", "l", "info", "Log level")
@@ -51,6 +53,8 @@ func main() {
 
 	l.Trace().Msg("Running shutdown")
 	app.shutDown()
+	stop := time.Now()
+	l.Info().Msgf("Completed in %v", stop.Sub(start))
 }
 
 func (app *application) configure(loglevelstr string) error {
