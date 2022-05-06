@@ -163,7 +163,7 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 				for _, delay := range sc.Config.RetryDelaysMs {
 					l.Warn().Int("Error code", response.StatusCode).Int("Delay", delay).Msg("Got error code. Retrying in...")
 					time.Sleep(time.Millisecond * time.Duration(delay))
-					response, err = http.Get(sc.Config.Tiobesiteformat)
+					response, err = http.Get(url)
 					if err != nil {
 						l.Error().Err(err).Msg("Could not access github!")
 						errMutex.Lock()

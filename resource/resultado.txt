@@ -1,20 +1,4 @@
-Assembly language,1129
-SQL,24173
-Objective-C,5463
-Go,41728
-R,26250
-cpp,45367
-PHP,89638
-JavaScript,307387
-csharp,46850
 delphi,1897
-C,43889
-Lua,9607
-Visual Basic,915
-Python,276389
-Java,164324
-Swift,33940
+cpp,45366
 visual-basic,915
-Ruby,28227
-Perl,3838
-MATLAB,9666
+csharp,46850
