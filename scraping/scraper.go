@@ -20,20 +20,28 @@ type Scraper struct {
 }
 
 type Scraperconfig struct {
-	Tiobesiteformat  string            `json:"tiobe_site_format" yaml:"tiobe_site_format"`
-	Githubsiteformat string            `json:"github_site_format" yaml:"github_site_format"`
-	Aliases          map[string]string `json:"aliases" yaml:"aliases"`
-	RetryDelaysMs    []int             `json:"retry_delays_ms" yaml:"retry_delays_ms"`
+	Tiobesiteformat      string            `json:"tiobe_site_format" yaml:"tiobe_site_format"`
+	Githubsiteformat     string            `json:"github_site_format" yaml:"github_site_format"`
+	Aliases              map[string]string `json:"aliases" yaml:"aliases"`
+	RetryDelaysMs        []int             `json:"retry_delays_ms" yaml:"retry_delays_ms"`
+	MaxPagesInterest     int               `json:"max_pages_interest" yaml:"max_pages_interest"`
+	Interest             string            `json:"interest" yaml:"interest"`
+	MaxParallel          int               `json:"max_parallel" yaml:"max_parallel"`
+	Githubinterestformat string            `json:"github_interest_format" yaml:"github_interest_format"`
 }
 
 func GetDefaultScraperConfig(logger zerolog.Logger) Scraperconfig {
 	l := logger.With().Str("function", "GetDefaultScraperConfig").Logger()
 	l.Trace().Msg("Creating default config.")
 	return Scraperconfig{
-		Tiobesiteformat:  "https://www.tiobe.com/tiobe-index/",
-		Githubsiteformat: "https://github.com/topics/%v",
-		Aliases:          map[string]string{"C++": "cpp", "C#": "csharp", "Delphi/Object Pascal": "delphi", "Classic Visual Basic": "visual-basic"},
-		RetryDelaysMs:    []int{300, 600, 1200},
+		Tiobesiteformat:      "https://www.tiobe.com/tiobe-index/",
+		Githubsiteformat:     "https://github.com/topics/%v",
+		Aliases:              map[string]string{"C++": "cpp", "C#": "csharp", "Delphi/Object Pascal": "delphi", "Classic Visual Basic": "visual-basic"},
+		RetryDelaysMs:        []int{300, 600, 1200},
+		MaxPagesInterest:     10,
+		Interest:             "sort",
+		MaxParallel:          5,
+		Githubinterestformat: "https://github.com/topics/%v?page=%v",
 	}
 }
 
@@ -143,12 +151,15 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 	var errMutex sync.Mutex
 	var mapMutex sync.Mutex
 	var wg sync.WaitGroup
+	maxchannel := make(chan struct{}, sc.Config.MaxParallel)
 	for _, lang := range languages {
 		wg.Add(1)
 		lang := lang
 
 		go func() {
 			defer wg.Done()
+			// Contar, bloquea si se estan ejecutando ya MaxParallel rutinas
+			maxchannel <- struct{}{}
 			url := fmt.Sprintf(sc.Config.Githubsiteformat, lang)
 			l.Trace().Str("url", url).Msgf("Making HTTP request to github")
 			response, err := http.Get(url)
@@ -157,6 +168,7 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
+				<-maxchannel
 				return
 			}
 			if response.StatusCode != http.StatusOK {
@@ -169,6 +181,7 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 						errMutex.Lock()
 						lastError = err
 						errMutex.Unlock()
+						<-maxchannel
 						return
 					}
 					if response.StatusCode == http.StatusOK {
@@ -181,6 +194,7 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 				errMutex.Lock()
 				lastError = common.NewStatusCodeError(response.StatusCode)
 				errMutex.Unlock()
+				<-maxchannel
 				return
 			}
 			l.Trace().Msg("Reading all content in to string")
@@ -190,6 +204,7 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
+				<-maxchannel
 				return
 			}
 			l.Trace().Msg("Closing reader")
@@ -202,6 +217,7 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
+				<-maxchannel
 				return
 			}
 			l.Trace().Msg("Regex find topic number")
@@ -212,6 +228,7 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
+				<-maxchannel
 				return
 			}
 			l.Trace().Msg("Parsing number")
@@ -221,13 +238,105 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
+				<-maxchannel
 				return
 			}
 			mapMutex.Lock()
 			ret[lang] = int32(num)
 			mapMutex.Unlock()
+			<-maxchannel
 		}()
 	}
 	wg.Wait()
+	close(maxchannel)
 	return ret, lastError
+}
+
+func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
+	l := sc.Logger.With().Str("method", "ScrapeGithub").Logger()
+
+	l.Trace().Msgf("Preparing to scrape github for topic: %v", sc.Config.Interest)
+	topics := make(map[string]int)
+
+	l.Trace().Msgf("Preparing regex for tags: %v", sc.Config.Interest)
+	l.Trace().Msgf("Compiling regular expression for getting topic number")
+	rtag := regexp.MustCompile(`<a.*topic-tag topic-tag.*>(.|\n)*?</a>`)
+	rtagbeg := regexp.MustCompile(`<a.*topic-tag topic-tag.*>`)
+	rtagfin := regexp.MustCompile(`</a>`)
+
+	var lastError error
+	var errMutex sync.Mutex
+	var mapMutex sync.Mutex
+	var wg sync.WaitGroup
+	maxchannel := make(chan struct{}, sc.Config.MaxParallel)
+	for i := 0; i < sc.Config.MaxPagesInterest; i++ {
+		wg.Add(1)
+		page := i
+
+		go func() {
+			defer wg.Done()
+			url := fmt.Sprintf(sc.Config.Githubinterestformat, sc.Config.Interest, page)
+			l.Trace().Str("url", url).Msgf("Making HTTP request to github")
+			response, err := http.Get(url)
+			if err != nil {
+				l.Error().Err(err).Msg("Could not access github! Skipping...")
+				errMutex.Lock()
+				lastError = err
+				errMutex.Unlock()
+				<-maxchannel
+				return
+			}
+			if response.StatusCode != http.StatusOK {
+				for _, delay := range sc.Config.RetryDelaysMs {
+					l.Warn().Int("Error code", response.StatusCode).Int("Delay", delay).Msg("Got error code. Retrying in...")
+					time.Sleep(time.Millisecond * time.Duration(delay))
+					response, err = http.Get(url)
+					if err != nil {
+						l.Error().Err(err).Msg("Could not access github!")
+						errMutex.Lock()
+						lastError = err
+						errMutex.Unlock()
+						<-maxchannel
+						return
+					}
+					if response.StatusCode == http.StatusOK {
+						break
+					}
+				}
+			}
+			if response.StatusCode != http.StatusOK {
+				l.Error().Int("StatusCode", response.StatusCode).Msg("Could not access github after retries!")
+				errMutex.Lock()
+				lastError = common.NewStatusCodeError(response.StatusCode)
+				errMutex.Unlock()
+				<-maxchannel
+				return
+			}
+			l.Trace().Msg("Reading all content in to string")
+			content, err := io.ReadAll(response.Body)
+			if err != nil {
+				l.Error().Err(err).Msg("Could not read all from body! Skipping...")
+				errMutex.Lock()
+				lastError = err
+				errMutex.Unlock()
+				<-maxchannel
+				return
+			}
+			l.Trace().Msg("Closing reader")
+			response.Body.Close()
+			l.Trace().Msg("Regex find tags")
+			tags := rtag.FindAll(content, -1)
+			for _, tag := range tags {
+				tag = rtagbeg.ReplaceAll(tag, []byte{})
+				tag = rtagfin.ReplaceAll(tag, []byte{})
+				tagstr := string(tag)
+				mapMutex.Lock()
+				topics[tagstr] = topics[tagstr] + 1
+				mapMutex.Unlock()
+			}
+			<-maxchannel
+		}()
+	}
+	wg.Wait()
+	return topics, lastError
 }

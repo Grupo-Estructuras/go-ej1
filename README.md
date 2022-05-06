@@ -1,4 +1,4 @@
-# go-ej1
+# GO
 
 ## Como configurar
 Toda la configuración se guarda en un archivo de formato yaml. Se puede ver un ejemplo de una configuración por defecto en resource/config/app.config
@@ -15,7 +15,7 @@ Además se pueden pasar los siguientes parametros en consola:
 - ```-l <LEVEL>``` o ```--loglevel <LEVEL>``` para el nivel de los logs mostrados. Por defecto se usa INFO. Las opciones son: ERROR, INFO, TRACE
 
 ## Como ejecutar
-El repositorio ya incluye todas los modulos externos utilizado en la carpeta vendo. Por lo tanto se puede ejecutar directamente con ```go run .``` o compilar con ```go build``` y ejecutando el binario resultante.
+El repositorio ya incluye todas los modulos externos utilizado en la carpeta vendor. Por lo tanto se puede ejecutar directamente con ```go run main/ejercicio_X/main.go``` (o ```go run main\ejercicio_X\main.go``` en windows) o compilar con ```go build main/ejercicio_X/main.go -o binary``` (```go build main\ejercicio_X\main.go -o binary``` en windows) y ejecutando el binario resultante.
 
 Es importante mencionar que el grafo generado es en formato de una página web y requiere que por defecto sea configurado un navegador que permita la ejecución de código Javascript para la visualización. En caso contrario también existe la opción de abrir el archivo manualmente después de la ejecución con un programa adecuado (el nombre y dirección del archivo son configurables).
 ## Organización del repositorio
