@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type Result struct {
+type LanguageResult struct {
 	Logger   zerolog.Logger
 	Min, Max int32
 	Language string
@@ -15,19 +15,19 @@ type Result struct {
 	Score    float32
 }
 
-type ScoreSort []Result
+type ScoreSort []LanguageResult
 
 func (a ScoreSort) Len() int           { return len(a) }
 func (a ScoreSort) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ScoreSort) Less(i, j int) bool { return a[i].Score < a[j].Score }
 
-type NumSort []Result
+type NumSort []LanguageResult
 
 func (a NumSort) Len() int           { return len(a) }
 func (a NumSort) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a NumSort) Less(i, j int) bool { return a[i].TopicNum < a[j].TopicNum }
 
-func (res *Result) Save(file *os.File) error {
+func (res *LanguageResult) Save(file *os.File) error {
 	l := res.Logger.With().Str("method", "Save").Str("lang", res.Language).Logger()
 
 	l.Trace().Msg("Trying to save result")
@@ -40,7 +40,7 @@ func (res *Result) Save(file *os.File) error {
 	return nil
 }
 
-func (res *Result) GetScore() float32 {
+func (res *LanguageResult) GetScore() float32 {
 	l := res.Logger.With().Str("method", "GetScore").Logger()
 
 	if res.Score == 0 {
@@ -51,7 +51,7 @@ func (res *Result) GetScore() float32 {
 	return res.Score
 }
 
-func (res *Result) String() string {
+func (res *LanguageResult) String() string {
 	if res == nil {
 		return ""
 	}

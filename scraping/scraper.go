@@ -275,6 +275,9 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 
 		go func() {
 			defer wg.Done()
+			// Contar, bloquea si se estan ejecutando ya MaxParallel rutinas
+			maxchannel <- struct{}{}
+
 			url := fmt.Sprintf(sc.Config.Githubinterestformat, sc.Config.Interest, page)
 			l.Trace().Str("url", url).Msgf("Making HTTP request to github")
 			response, err := http.Get(url)
@@ -327,12 +330,20 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 			l.Trace().Msg("Regex find tags")
 			tags := rtag.FindAll(content, -1)
 			for _, tag := range tags {
+				l.Trace().Msg("Extracting tag")
 				tag = rtagbeg.ReplaceAll(tag, []byte{})
 				tag = rtagfin.ReplaceAll(tag, []byte{})
 				tagstr := string(tag)
-				mapMutex.Lock()
-				topics[tagstr] = topics[tagstr] + 1
-				mapMutex.Unlock()
+				l.Trace().Msg("Trimming tag")
+				tagstr = strings.TrimSpace(tagstr)
+
+				// Ignore tag same as interest
+				if tagstr != sc.Config.Interest {
+					mapMutex.Lock()
+					topics[tagstr] = topics[tagstr] + 1
+					mapMutex.Unlock()
+				}
+
 			}
 			<-maxchannel
 		}()

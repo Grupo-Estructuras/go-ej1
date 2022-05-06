@@ -12,14 +12,14 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type ResultList struct {
+type LanguageResultList struct {
 	Logger  zerolog.Logger
-	results []Result
+	results []LanguageResult
 }
 
-func CreateResultList(results map[string]int32, logger zerolog.Logger) ResultList {
-	var resl ResultList
-	l := logger.With().Str("function", "CreateResultList").Logger()
+func CreateLanguageResultList(results map[string]int32, logger zerolog.Logger) LanguageResultList {
+	var resl LanguageResultList
+	l := logger.With().Str("function", "CreateLanguageResultList").Logger()
 
 	l.Trace().Msg("Creating logger for result list")
 	resl.Logger = logger.With().Str("struct", "ResultList").Logger()
@@ -40,7 +40,7 @@ func CreateResultList(results map[string]int32, logger zerolog.Logger) ResultLis
 
 	l.Trace().Msg("Parsing map to result list")
 	for lang, num := range results {
-		resl.results = append(resl.results, Result{
+		resl.results = append(resl.results, LanguageResult{
 			Logger:   logger.With().Str("object", "Result").Logger(),
 			Min:      min,
 			Max:      max,
@@ -53,7 +53,7 @@ func CreateResultList(results map[string]int32, logger zerolog.Logger) ResultLis
 	return resl
 }
 
-func (resl *ResultList) Save(filename string) error {
+func (resl *LanguageResultList) Save(filename string) error {
 	l := resl.Logger.With().Str("method", "Save").Logger()
 
 	l.Trace().Msg("Opening file")
@@ -75,7 +75,7 @@ func (resl *ResultList) Save(filename string) error {
 	return nil
 }
 
-func (resl *ResultList) Graph(htmlname string) error {
+func (resl *LanguageResultList) Graph(htmlname string) error {
 	l := resl.Logger.With().Str("method", "Graph").Logger()
 
 	l.Trace().Msg("Create new bar")
@@ -113,21 +113,21 @@ func (resl *ResultList) Graph(htmlname string) error {
 	return nil
 }
 
-func (resl *ResultList) ScoreSort() {
+func (resl *LanguageResultList) ScoreSort() {
 	l := resl.Logger.With().Str("method", "ScoreSort").Logger()
 
 	l.Trace().Msg("Sorting by score")
 	sort.Sort(sort.Reverse(ScoreSort(resl.results)))
 }
 
-func (resl *ResultList) NumSort() {
+func (resl *LanguageResultList) NumSort() {
 	l := resl.Logger.With().Str("method", "NumSort").Logger()
 
 	l.Trace().Msg("Sorting by number of appearance on github.com")
 	sort.Sort(sort.Reverse(NumSort(resl.results)))
 }
 
-func (resl *ResultList) getLanguageList() []string {
+func (resl *LanguageResultList) getLanguageList() []string {
 	l := resl.Logger.With().Str("method", "getLanguageList").Logger()
 
 	l.Trace().Msg("Get string slice of languages")
@@ -139,7 +139,7 @@ func (resl *ResultList) getLanguageList() []string {
 	l.Trace().Msg("Return slice of language string")
 	return langs
 }
-func (resl *ResultList) getValueList() []int32 {
+func (resl *LanguageResultList) getValueList() []int32 {
 	l := resl.Logger.With().Str("method", "getValueList").Logger()
 
 	l.Trace().Msg("Get string slice of values")
@@ -151,7 +151,7 @@ func (resl *ResultList) getValueList() []int32 {
 	l.Trace().Msg("Return slice of values int32")
 	return topicnums
 }
-func (resl *ResultList) getBars() []opts.BarData {
+func (resl *LanguageResultList) getBars() []opts.BarData {
 	l := resl.Logger.With().Str("method", "getBars").Logger()
 
 	l.Trace().Msg("Get slice of bars")
@@ -163,7 +163,7 @@ func (resl *ResultList) getBars() []opts.BarData {
 	l.Trace().Msg("Return slice of bars")
 	return bars
 }
-func (resl *ResultList) String() string {
+func (resl *LanguageResultList) String() string {
 	if resl == nil {
 		return ""
 	}
