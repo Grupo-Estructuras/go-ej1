@@ -98,8 +98,16 @@ func (resl *LanguageResultList) Graph(htmlname string) error {
 	)
 
 	l.Trace().Msg("Fill with data")
-	bar.SetXAxis(resl.getLanguageList()[0:10]).
-		AddSeries("Lenguajes tiobe", resl.getBars()[0:10])
+	Languagelist := resl.getLanguageList()
+	if len(Languagelist) > 10 {
+		Languagelist = Languagelist[0:10]
+	}
+	barlist := resl.getBars()
+	if len(barlist) > 10 {
+		barlist = barlist[0:10]
+	}
+	bar.SetXAxis(Languagelist).
+		AddSeries("Languages", barlist)
 
 	l.Trace().Str("html-file", htmlname).Msg("Create html file")
 	f, err := os.Create(htmlname)

@@ -41,7 +41,7 @@ func GetDefaultScraperConfig(logger zerolog.Logger) Scraperconfig {
 		MaxPagesInterest:     10,
 		Interest:             "sort",
 		MaxParallel:          5,
-		Githubinterestformat: "https://github.com/topics/%v?page=%v",
+		Githubinterestformat: "https://github.com/topics/%v?o=desc&page=%v",
 	}
 }
 
@@ -259,17 +259,25 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 	topics := make(map[string]int)
 
 	l.Trace().Msgf("Preparing regex for tags: %v", sc.Config.Interest)
-	l.Trace().Msgf("Compiling regular expression for getting topic number")
+	l.Trace().Msgf("Compiling regular expression for getting tag related content")
+	rarticle := regexp.MustCompile(`<article.*>(.|\n)*?</article>`)
+	rtimehtml := regexp.MustCompile(`<relative-time.*>(.|\n)*?</relative-time>`)
+	rtimestamp := regexp.MustCompile(`\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ`)
 	rtag := regexp.MustCompile(`<a.*topic-tag topic-tag.*>(.|\n)*?</a>`)
 	rtagbeg := regexp.MustCompile(`<a.*topic-tag topic-tag.*>`)
 	rtagfin := regexp.MustCompile(`</a>`)
+
+	l.Trace().Msgf("Create reference time")
+	now := time.Now()
 
 	var lastError error
 	var errMutex sync.Mutex
 	var mapMutex sync.Mutex
 	var wg sync.WaitGroup
 	maxchannel := make(chan struct{}, sc.Config.MaxParallel)
-	for i := 0; i < sc.Config.MaxPagesInterest; i++ {
+
+	// We need to start at one, as github considers page 0 invalid and returns page 1 instead
+	for i := 1; i <= sc.Config.MaxPagesInterest; i++ {
 		wg.Add(1)
 		page := i
 
@@ -279,7 +287,7 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 			maxchannel <- struct{}{}
 
 			url := fmt.Sprintf(sc.Config.Githubinterestformat, sc.Config.Interest, page)
-			l.Trace().Str("url", url).Msgf("Making HTTP request to github")
+			l.Trace().Str("url\n", url).Msgf("Making HTTP request to github")
 			response, err := http.Get(url)
 			if err != nil {
 				l.Error().Err(err).Msg("Could not access github! Skipping...")
@@ -327,23 +335,43 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 			}
 			l.Trace().Msg("Closing reader")
 			response.Body.Close()
-			l.Trace().Msg("Regex find tags")
-			tags := rtag.FindAll(content, -1)
-			for _, tag := range tags {
-				l.Trace().Msg("Extracting tag")
-				tag = rtagbeg.ReplaceAll(tag, []byte{})
-				tag = rtagfin.ReplaceAll(tag, []byte{})
-				tagstr := string(tag)
-				l.Trace().Msg("Trimming tag")
-				tagstr = strings.TrimSpace(tagstr)
+			l.Trace().Msg("Regex find article")
+			articles := rarticle.FindAll(content, -1)
 
-				// Ignore tag same as interest
-				if tagstr != sc.Config.Interest {
-					mapMutex.Lock()
-					topics[tagstr] = topics[tagstr] + 1
-					mapMutex.Unlock()
+			l.Trace().Msg("Process articles")
+			for _, article := range articles {
+				l.Trace().Msg("Find time for article")
+				timehtml := rtimehtml.Find(article)
+				timebyte := rtimestamp.Find(timehtml)
+				timestr := string(timebyte)
+				updtime, err := time.Parse(time.RFC3339, timestr)
+				if err != nil {
+					l.Error().Err(err).Msg("Error reading time, skipping article.")
+					continue
 				}
+				l.Trace().Msg("Calculate duration from update to now")
+				if now.Sub(updtime) > time.Duration(30*24)*time.Hour {
+					l.Trace().Msg("Stop page processing, time is more than 30 days")
+					break
+				}
+				l.Trace().Msg("Update is less than 30 days ago, processing tags")
+				l.Trace().Msg("Regex find tags")
+				tags := rtag.FindAll(article, -1)
+				for _, tag := range tags {
+					l.Trace().Msg("Extracting tag")
+					tag = rtagbeg.ReplaceAll(tag, []byte{})
+					tag = rtagfin.ReplaceAll(tag, []byte{})
+					tagstr := string(tag)
+					l.Trace().Msg("Trimming tag")
+					tagstr = strings.TrimSpace(tagstr)
 
+					// Ignore tag same as interest
+					if tagstr != sc.Config.Interest {
+						mapMutex.Lock()
+						topics[tagstr] = topics[tagstr] + 1
+						mapMutex.Unlock()
+					}
+				}
 			}
 			<-maxchannel
 		}()

@@ -57,8 +57,16 @@ func (resl *TagResultList) Graph(htmlname string) error {
 	)
 
 	l.Trace().Msg("Fill with data")
-	bar.SetXAxis(resl.getTagList()[0:10]).
-		AddSeries("Tags", resl.getBars()[0:10])
+	taglist := resl.getTagList()
+	if len(taglist) > 10 {
+		taglist = taglist[0:10]
+	}
+	barlist := resl.getBars()
+	if len(barlist) > 10 {
+		barlist = barlist[0:10]
+	}
+	bar.SetXAxis(taglist).
+		AddSeries("Tags", barlist)
 
 	l.Trace().Str("html-file", htmlname).Msg("Create html file")
 	f, err := os.Create(htmlname)
