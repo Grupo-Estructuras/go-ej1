@@ -286,7 +286,7 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 			// Contar, bloquea si se estan ejecutando ya MaxParallel rutinas
 			maxchannel <- struct{}{}
 
-			url := fmt.Sprintf(sc.Config.Githubinterestformat, sc.Config.Interest, page)
+			url := fmt.Sprintf(sc.Config.Githubinterestformat, strings.ToLower(sc.Config.Interest), page)
 			l.Trace().Str("url\n", url).Msgf("Making HTTP request to github")
 			response, err := http.Get(url)
 			if err != nil {

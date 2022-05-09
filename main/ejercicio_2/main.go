@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 	"webscraping/app"
 	"webscraping/resultproc"
@@ -42,23 +43,33 @@ func run(app *app.Application) error {
 	l.Trace().Msg("Creating scraper object")
 	sc := scraping.Scraper{Config: &app.Config.Scraper, Logger: app.Logger.With().Str("struct", "scraper").Logger()}
 
+	l.Trace().Msg("Scrape github")
 	topics, err := sc.ScrapeInterest()
 	if err != nil {
 		l.Error().Err(err).Msg("Could not parse github!")
 		return err
 	}
+	l.Trace().Msg("Creating result list")
 	res := resultproc.CreateTagResultList(topics, app.Logger)
+	l.Trace().Msg("Sorting results")
 	res.TagSort()
+
+	l.Trace().Msg("Print results")
+	fmt.Printf(res.String())
+
+	l.Trace().Msg("Creating graph")
 	err = res.Graph(app.Config.HtmlFile)
 	if err != nil {
 		l.Error().Err(err).Msg("Could not graph results")
 		return err
 	}
+	l.Trace().Msg("Open graph")
 	app.OpenGraph()
 	if err != nil {
 		l.Error().Err(err).Msgf("Could not open graph. Please manually open %v in your browser.", app.Config.HtmlFile)
 		return err
 	}
 
+	l.Trace().Msg("Exiting run without errors...")
 	return nil
 }

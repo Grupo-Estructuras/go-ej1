@@ -3,6 +3,7 @@ package resultproc
 import (
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -122,4 +123,16 @@ func (resl *TagResultList) getBars() []opts.BarData {
 
 	l.Trace().Msg("Return slice of bars")
 	return bars
+}
+
+func (resl *TagResultList) String() string {
+	if resl == nil {
+		return ""
+	}
+	var sb strings.Builder
+	for _, res := range resl.results {
+		sb.WriteString(res.String())
+		sb.WriteString("\n")
+	}
+	return sb.String()
 }
