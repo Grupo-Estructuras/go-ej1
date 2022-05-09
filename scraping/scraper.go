@@ -351,8 +351,8 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 				}
 				l.Trace().Msg("Calculate duration from update to now")
 				if now.Sub(updtime) > time.Duration(30*24)*time.Hour {
-					l.Trace().Msg("Stop page processing, time is more than 30 days")
-					break
+					l.Trace().Msg("Age of this article is more than 30 days, skipping...")
+					continue
 				}
 				l.Trace().Msg("Update is less than 30 days ago, processing tags")
 				l.Trace().Msg("Regex find tags")
@@ -365,12 +365,9 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 					l.Trace().Msg("Trimming tag")
 					tagstr = strings.TrimSpace(tagstr)
 
-					// Ignore tag same as interest
-					if tagstr != sc.Config.Interest {
-						mapMutex.Lock()
-						topics[tagstr] = topics[tagstr] + 1
-						mapMutex.Unlock()
-					}
+					mapMutex.Lock()
+					topics[tagstr] = topics[tagstr] + 1
+					mapMutex.Unlock()
 				}
 			}
 			<-maxchannel
