@@ -31,23 +31,23 @@ func (app *Application) Configure(loglevelstr string) error {
 	app.Logger = zerolog.New(log_writer).Level(zerolog.InfoLevel).With().Timestamp().Logger()
 	if err != nil {
 		l = app.Logger.Level(zerolog.InfoLevel).With().Str("struct", "app").Str("method", "configure").Logger()
-		l.Info().Err(err).Msg("Could not parse loglevel. Using default info")
+		l.Info().Err(err).Msg("No se pudo leer el nivel de loggs. Usando el por defecto 'info'")
 	} else {
 		l = app.Logger.Level(loglevel).With().Str("struct", "app").Str("method", "configure").Logger()
-		l.Trace().Msg("Initialized logger")
+		l.Trace().Msg("Logger inicializado")
 	}
 	app.Logger = l
 
-	l.Trace().Msg("Setting default config")
+	l.Trace().Msg("Poniendo configuración por defecto")
 	app.Config.Scraper = scraping.GetDefaultScraperConfig(app.Logger)
 	app.Config.LangList = []string{}
 	app.Config.UseFixedList = false
 	app.Config.HtmlFile = "resource/grafo.html"
 	app.Config.ResultFile = "resource/resultado.txt"
 
-	l.Trace().Msg("Creating new fileconfigstore")
+	l.Trace().Msg("Creando fileconfigstore")
 	fs := fileconfig.NewFileConfigstore(l, *app.ConfigFile)
-	l.Trace().Msg("Loading configuration from file")
+	l.Trace().Msg("Cargando configuración de archivo")
 	err = fs.Load(&app.Config)
 
 	return err

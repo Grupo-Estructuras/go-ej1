@@ -32,7 +32,7 @@ type Scraperconfig struct {
 
 func GetDefaultScraperConfig(logger zerolog.Logger) Scraperconfig {
 	l := logger.With().Str("function", "GetDefaultScraperConfig").Logger()
-	l.Trace().Msg("Creating default config.")
+	l.Trace().Msg("Creando configuración por defecto.")
 	return Scraperconfig{
 		Tiobesiteformat:      "https://www.tiobe.com/tiobe-index/",
 		Githubsiteformat:     "https://github.com/topics/%v",
@@ -48,19 +48,19 @@ func GetDefaultScraperConfig(logger zerolog.Logger) Scraperconfig {
 func (sc *Scraper) ScrapeTiobe() ([]string, error) {
 	l := sc.Logger.With().Str("method", "ScraperTiobe").Logger()
 
-	l.Trace().Str("url", sc.Config.Tiobesiteformat).Msgf("Making HTTP request to tiobe")
+	l.Trace().Str("url", sc.Config.Tiobesiteformat).Msgf("Accediendo a tiobe.")
 	response, err := http.Get(sc.Config.Tiobesiteformat)
 	if err != nil {
-		l.Error().Err(err).Msg("Could not access tiobe!")
+		l.Error().Err(err).Msg("No se pudo acceder a tiobe!")
 		return nil, err
 	}
 	if response.StatusCode != http.StatusOK {
 		for _, delay := range sc.Config.RetryDelaysMs {
-			l.Warn().Int("Error code", response.StatusCode).Int("Delay", delay).Msg("Got error code. Retrying in...")
+			l.Warn().Int("Error code", response.StatusCode).Int("Tiempo espera", delay).Msg("La página retorno un error. Reintentando...")
 			time.Sleep(time.Millisecond * time.Duration(delay))
 			response, err = http.Get(sc.Config.Tiobesiteformat)
 			if err != nil {
-				l.Error().Err(err).Msg("Could not access tiobe!")
+				l.Error().Err(err).Msg("No se pudo acceder a tiobe!")
 				return nil, err
 			}
 			if response.StatusCode == http.StatusOK {
@@ -69,49 +69,49 @@ func (sc *Scraper) ScrapeTiobe() ([]string, error) {
 		}
 	}
 	if response.StatusCode != http.StatusOK {
-		l.Error().Int("StatusCode", response.StatusCode).Msg("Could not access tiobe after retries!")
+		l.Error().Int("Código respuesta", response.StatusCode).Msg("No se pudo acceder en los intentos configurados!")
 		return nil, common.NewStatusCodeError(response.StatusCode)
 	}
-	l.Trace().Str("url", sc.Config.Tiobesiteformat).Msgf("Reading entire body in to string")
+	l.Trace().Str("url", sc.Config.Tiobesiteformat).Msgf("Leyendo contenido a cadena")
 	content, err := io.ReadAll(response.Body)
 	if err != nil {
-		l.Error().Err(err).Msg("Could not read all from body!")
+		l.Error().Err(err).Msg("No se pudo leer todo el contenido!")
 		return nil, err
 	}
-	l.Trace().Str("url", sc.Config.Tiobesiteformat).Msgf("Closing reader")
+	l.Trace().Str("url", sc.Config.Tiobesiteformat).Msgf("Cerrando lector")
 	response.Body.Close()
 
-	l.Trace().Msgf("Compiling regular expression for scanning top20 table")
+	l.Trace().Msgf("Compilando la expresión regular para la tabla de los top 20")
 	rt := regexp.MustCompile(`<table.*id="top20".*>(.|\n)*?</table>`)
-	l.Trace().Msgf("Searching top20 table")
+	l.Trace().Msgf("Buscando la tabla top 20")
 	content = rt.Find(content)
 	if content == nil {
 		err := common.NewParseError("top 20 table")
-		l.Error().Err(err).Msg("Could not find table!")
+		l.Error().Err(err).Msg("No se encontró la tabla!")
 		return nil, err
 	}
 
-	l.Trace().Msgf("Compiling regular expression for scanning tabledata elements")
+	l.Trace().Msgf("Compilando la expresión regular para buscar las filas de las tablas")
 	rtd := regexp.MustCompile("<td.*?>.*?</td>")
-	l.Trace().Msgf("Searching all table data elements")
+	l.Trace().Msgf("Buscando todas las filas de la tabla")
 	tabledata := rtd.FindAll(content, 140)
 	if content == nil {
 		err := common.NewParseError("table data")
-		l.Error().Err(err).Msg("Could not find table elements!")
+		l.Error().Err(err).Msg("No se encontro contenido en la tabla!")
 		return nil, err
 	}
 
-	l.Trace().Msgf("Compiling regular expression for replacing html part")
+	l.Trace().Msgf("Compilando la expresión regular para reemplazar los tags  html")
 	rtdr := regexp.MustCompile("</?td>")
-	l.Trace().Msgf("Parsing all table data elements")
+	l.Trace().Msgf("Limpiando filas de contenido html")
 	var languages []string
 	for i := 4; i < 140; i += 7 {
 		lang := string(rtdr.ReplaceAll(tabledata[i], []byte{}))
-		l.Trace().Msgf("Adding language %v", lang)
+		l.Trace().Msgf("Agregando lenguaje %v", lang)
 		languages = append(languages, lang)
 	}
 
-	l.Trace().Msgf("Passing list to replace function")
+	l.Trace().Msgf("Pasar lista a función de alias")
 	languages = sc.aliasreplace(languages)
 
 	l.Trace().Msgf("EXIT")
@@ -121,15 +121,15 @@ func (sc *Scraper) ScrapeTiobe() ([]string, error) {
 func (sc *Scraper) aliasreplace(original []string) []string {
 	l := sc.Logger.With().Str("method", "aliasreplace").Logger()
 
-	l.Trace().Msg("Replacing languages with aliases")
+	l.Trace().Msg("Reemplazando lenguajes con sus alias")
 	var replaced []string
 	for _, lang := range original {
 		replaceLang := sc.Config.Aliases[lang]
 		if replaceLang != "" {
-			l.Trace().Msgf("Replacing %v with alias %v", lang, replaceLang)
+			l.Trace().Msgf("Reemplazando %v con alias %v", lang, replaceLang)
 			replaced = append(replaced, replaceLang)
 		} else {
-			l.Trace().Msgf("%v has no alias, using original.", lang)
+			l.Trace().Msgf("%v hno tiene original, usando original", lang)
 			replaced = append(replaced, lang)
 		}
 	}
@@ -140,11 +140,11 @@ func (sc *Scraper) aliasreplace(original []string) []string {
 func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 	l := sc.Logger.With().Str("method", "ScrapeGithub").Logger()
 
-	l.Trace().Msg("Setting up for scraping github")
+	l.Trace().Msg("Preparando para scraping de github")
 	ret := make(map[string]int32)
-	l.Trace().Msgf("Compiling regular expression for getting line with number")
+	l.Trace().Msgf("Compilando expresión regular para obtener línea con número de repositorios")
 	rtopicLine := regexp.MustCompile(`Here\s+are\s+\d+(,\d*)*\s+public\s+repositories\s+matching\s+this\s+topic...`)
-	l.Trace().Msgf("Compiling regular expression for getting topic number")
+	l.Trace().Msgf("Compilando expresión regular para el número")
 	rtopicnumber := regexp.MustCompile(`\d+(,\d*)*`)
 
 	var lastError error
@@ -161,10 +161,10 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 			// Contar, bloquea si se estan ejecutando ya MaxParallel rutinas
 			maxchannel <- struct{}{}
 			url := fmt.Sprintf(sc.Config.Githubsiteformat, lang)
-			l.Trace().Str("url", url).Msgf("Making HTTP request to github")
+			l.Trace().Str("url", url).Msgf("Haciendo consulta HTTP a github")
 			response, err := http.Get(url)
 			if err != nil {
-				l.Error().Err(err).Msg("Could not access github! Skipping...")
+				l.Error().Err(err).Msg("No se pudo acceder a Github, saltando...")
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
@@ -173,11 +173,11 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 			}
 			if response.StatusCode != http.StatusOK {
 				for _, delay := range sc.Config.RetryDelaysMs {
-					l.Warn().Int("Error code", response.StatusCode).Int("Delay", delay).Msg("Got error code. Retrying in...")
+					l.Warn().Int("Código error", response.StatusCode).Int("Tiempo espera", delay).Msg("Se retorno un error. Reintentando después de tiempo espera...")
 					time.Sleep(time.Millisecond * time.Duration(delay))
 					response, err = http.Get(url)
 					if err != nil {
-						l.Error().Err(err).Msg("Could not access github!")
+						l.Error().Err(err).Msg("No se pudo acceder a github!")
 						errMutex.Lock()
 						lastError = err
 						errMutex.Unlock()
@@ -190,51 +190,51 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 				}
 			}
 			if response.StatusCode != http.StatusOK {
-				l.Error().Int("StatusCode", response.StatusCode).Msg("Could not access github after retries!")
+				l.Error().Int("StatusCode", response.StatusCode).Msg("No se pudo acceder a github en intentos configurados!")
 				errMutex.Lock()
 				lastError = common.NewStatusCodeError(response.StatusCode)
 				errMutex.Unlock()
 				<-maxchannel
 				return
 			}
-			l.Trace().Msg("Reading all content in to string")
+			l.Trace().Msg("Leer todo el contenido a cadena")
 			content, err := io.ReadAll(response.Body)
 			if err != nil {
-				l.Error().Err(err).Msg("Could not read all from body! Skipping...")
+				l.Error().Err(err).Msg("No se pudo leer todo, reintentando...")
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
 				<-maxchannel
 				return
 			}
-			l.Trace().Msg("Closing reader")
+			l.Trace().Msg("Cerrando lector")
 			response.Body.Close()
-			l.Trace().Msg("Regex find topic line")
+			l.Trace().Msg("Usando expresión regular de la línea de número")
 			content = rtopicLine.Find(content)
 			if content == nil {
 				err := common.NewParseError("topic line")
-				l.Error().Err(err).Msg("Could not find topic line! Skipping...")
+				l.Error().Err(err).Msg("No se encontró lo buscado! Saltando...")
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
 				<-maxchannel
 				return
 			}
-			l.Trace().Msg("Regex find topic number")
+			l.Trace().Msg("Buscando número con expresión regular")
 			content = rtopicnumber.Find(content)
 			if content == nil {
 				err := common.NewParseError("topic number")
-				l.Error().Err(err).Msg("Could not find topic number! Skipping...")
+				l.Error().Err(err).Msg("No se encontró el número! Saltando...")
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
 				<-maxchannel
 				return
 			}
-			l.Trace().Msg("Parsing number")
+			l.Trace().Msg("Leyendo número")
 			num, err := strconv.ParseInt(strings.ReplaceAll(string(content), ",", ""), 10, 32)
 			if err != nil {
-				l.Error().Err(err).Msg("Could not parse number! Skipping...")
+				l.Error().Err(err).Msg("No se pudo convertir a número! Saltando topic...")
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
@@ -255,11 +255,11 @@ func (sc *Scraper) ScrapeGithub(languages []string) (map[string]int32, error) {
 func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 	l := sc.Logger.With().Str("method", "ScrapeGithub").Logger()
 
-	l.Trace().Msgf("Preparing to scrape github for topic: %v", sc.Config.Interest)
+	l.Trace().Msgf("Preparando para scraping de github: %v", sc.Config.Interest)
 	topics := make(map[string]int)
 
-	l.Trace().Msgf("Preparing regex for tags: %v", sc.Config.Interest)
-	l.Trace().Msgf("Compiling regular expression for getting tag related content")
+	l.Trace().Msgf("Preparando expresiónes regulares para tags: %v", sc.Config.Interest)
+	l.Trace().Msgf("Compilando expresiónes regulares...")
 	rarticle := regexp.MustCompile(`<article.*>(.|\n)*?</article>`)
 	rtimehtml := regexp.MustCompile(`<relative-time.*>(.|\n)*?</relative-time>`)
 	rtimestamp := regexp.MustCompile(`\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ`)
@@ -267,7 +267,7 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 	rtagbeg := regexp.MustCompile(`<a.*topic-tag topic-tag.*>`)
 	rtagfin := regexp.MustCompile(`</a>`)
 
-	l.Trace().Msgf("Create reference time")
+	l.Trace().Msgf("Leer tiempo referencia")
 	now := time.Now()
 
 	var lastError error
@@ -287,10 +287,10 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 			maxchannel <- struct{}{}
 
 			url := fmt.Sprintf(sc.Config.Githubinterestformat, strings.ToLower(sc.Config.Interest), page)
-			l.Trace().Str("url\n", url).Msgf("Making HTTP request to github")
+			l.Trace().Str("url\n", url).Msgf("Haciendo consulta HTTP a github")
 			response, err := http.Get(url)
 			if err != nil {
-				l.Error().Err(err).Msg("Could not access github! Skipping...")
+				l.Error().Err(err).Msg("No se pudo acceder a github! Saltando tag...")
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
@@ -299,11 +299,11 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 			}
 			if response.StatusCode != http.StatusOK {
 				for _, delay := range sc.Config.RetryDelaysMs {
-					l.Warn().Int("Error code", response.StatusCode).Int("Delay", delay).Msg("Got error code. Retrying in...")
+					l.Warn().Int("Error code", response.StatusCode).Int("Delay", delay).Msg("Página retorno error. Reintentando en...")
 					time.Sleep(time.Millisecond * time.Duration(delay))
 					response, err = http.Get(url)
 					if err != nil {
-						l.Error().Err(err).Msg("Could not access github!")
+						l.Error().Err(err).Msg("No se pudo acceder a github!")
 						errMutex.Lock()
 						lastError = err
 						errMutex.Unlock()
@@ -316,53 +316,57 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 				}
 			}
 			if response.StatusCode != http.StatusOK {
-				l.Error().Int("StatusCode", response.StatusCode).Msg("Could not access github after retries!")
+				l.Error().Int("StatusCode", response.StatusCode).Msg("No se pudo acceder a github en intentos configurados!")
 				errMutex.Lock()
 				lastError = common.NewStatusCodeError(response.StatusCode)
 				errMutex.Unlock()
 				<-maxchannel
 				return
 			}
-			l.Trace().Msg("Reading all content in to string")
+			l.Trace().Msg("Leyendo todo el contenido a cadena")
 			content, err := io.ReadAll(response.Body)
 			if err != nil {
-				l.Error().Err(err).Msg("Could not read all from body! Skipping...")
+				l.Error().Err(err).Msg("No se pudo leer todo! Saltando topic...")
 				errMutex.Lock()
 				lastError = err
 				errMutex.Unlock()
 				<-maxchannel
 				return
 			}
-			l.Trace().Msg("Closing reader")
+			l.Trace().Msg("Cerrando lector")
 			response.Body.Close()
-			l.Trace().Msg("Regex find article")
+			l.Trace().Msg("Usando expresión regular para encontrar artículo")
 			articles := rarticle.FindAll(content, -1)
 
-			l.Trace().Msg("Process articles")
+			l.Trace().Msg("Procesando artículos")
 			for _, article := range articles {
-				l.Trace().Msg("Find time for article")
+				l.Trace().Msg("Buscar tiempo")
 				timehtml := rtimehtml.Find(article)
 				timebyte := rtimestamp.Find(timehtml)
-				timestr := string(timebyte)
+				timestr := strings.ReplaceAll(string(timebyte), "\"", "")
 				updtime, err := time.Parse(time.RFC3339, timestr)
+				if timestr == "" {
+					l.Trace().Msg("Saltando articulo sin tiempo (no es repositorio)")
+					continue
+				}
 				if err != nil {
-					l.Error().Err(err).Msg("Error reading time, skipping article.")
+					l.Error().Err(err).Msg("Error leyendo tiempo, saltando página.")
 					continue
 				}
-				l.Trace().Msg("Calculate duration from update to now")
+				l.Trace().Msg("Calculando diferencia en tiempo")
 				if now.Sub(updtime) > time.Duration(30*24)*time.Hour {
-					l.Trace().Msg("Age of this article is more than 30 days, skipping...")
+					l.Trace().Msg("Este artículo es de hace más de 30 días, saltando...")
 					continue
 				}
-				l.Trace().Msg("Update is less than 30 days ago, processing tags")
-				l.Trace().Msg("Regex find tags")
+				l.Trace().Msg("Diferencia menor a 30 días, procesando...")
+				l.Trace().Msg("Usando expresión regular encontrar tags")
 				tags := rtag.FindAll(article, -1)
 				for _, tag := range tags {
-					l.Trace().Msg("Extracting tag")
+					l.Trace().Msg("Procesando tag")
 					tag = rtagbeg.ReplaceAll(tag, []byte{})
 					tag = rtagfin.ReplaceAll(tag, []byte{})
 					tagstr := string(tag)
-					l.Trace().Msg("Trimming tag")
+					l.Trace().Msg("Cortando todo menos texto")
 					tagstr = strings.TrimSpace(tagstr)
 
 					mapMutex.Lock()

@@ -10,11 +10,11 @@ type StatusCodeError struct {
 }
 
 func (err *ParseError) Error() string {
-	return "Could not parse " + err.parseobject
+	return "No se pudo leer " + err.parseobject
 }
 
 func (err *StatusCodeError) Error() string {
-	return fmt.Sprintf("Last status code was %d", err.code)
+	return fmt.Sprintf("El último código error fue %d", err.code)
 }
 
 func NewParseError(parseobject string) *ParseError {
