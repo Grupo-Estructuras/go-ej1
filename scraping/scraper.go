@@ -276,7 +276,7 @@ func (sc *Scraper) ScrapeInterest() (map[string]int, error) {
 	var wg sync.WaitGroup
 	maxchannel := make(chan struct{}, sc.Config.MaxParallel)
 
-	// We need to start at one, as github considers page 0 invalid and returns page 1 instead
+	// Debemos empezar en pagina 1, porque si no github en pagina 0 y 1 retorna el mismo contenido
 	for i := 1; i <= sc.Config.MaxPagesInterest; i++ {
 		wg.Add(1)
 		page := i
