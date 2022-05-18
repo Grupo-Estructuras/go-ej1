@@ -30,10 +30,10 @@ func (a NumSort) Less(i, j int) bool { return a[i].TopicNum < a[j].TopicNum }
 func (res *LanguageResult) Save(file *os.File) error {
 	l := res.Logger.With().Str("method", "Save").Str("lang", res.Language).Logger()
 
-	l.Trace().Msg("Trying to save result")
+	l.Trace().Msg("Intentando guardar resultado")
 	_, err := file.WriteString(fmt.Sprintf("%v,%v\n", res.Language, res.TopicNum))
 	if err != nil {
-		l.Error().Err(err).Msg("Could not write to file")
+		l.Error().Err(err).Msg("No se pudo escribir en archivo")
 		return err
 	}
 	l.Trace().Msg("EXIT")
@@ -44,10 +44,10 @@ func (res *LanguageResult) GetScore() float32 {
 	l := res.Logger.With().Str("method", "GetScore").Logger()
 
 	if res.Score == 0 {
-		l.Trace().Msg("Calculating score")
+		l.Trace().Msg("Calculando puntaje")
 		res.Score = float32(res.TopicNum-res.Min) / float32(res.Max-res.Min) * 100
 	}
-	l.Trace().Msg("Returning saved score")
+	l.Trace().Msg("Retornando puntaje")
 	return res.Score
 }
 
@@ -55,5 +55,5 @@ func (res *LanguageResult) String() string {
 	if res == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s, %f, %d", res.Language, res.GetScore(), res.TopicNum)
+	return fmt.Sprintf("%40s, %20f, %20d", res.Language, res.GetScore(), res.TopicNum)
 }
