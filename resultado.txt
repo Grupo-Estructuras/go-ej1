@@ -1,0 +1,20 @@
+cpp,45632
+Python,278570
+R,26354
+C,44110
+Java,165418
+csharp,47117
+Visual Basic,898
+SQL,24452
+Objective-C,5462
+Lua,9657
+Ruby,28332
+MATLAB,9746
+Assembly language,986
+PHP,89989
+visual-basic,898
+Perl,3844
+Go,41926
+Swift,34027
+JavaScript,310629
+delphi,1910

@@ -73,9 +73,9 @@ func run(app *app.Application) error {
 	res.Save(app.Config.ResultFile)
 	l.Trace().Msg("Imprimir resultados")
 	res.ScoreSort()
-	fmt.Print(res.String())
-
 	res.NumSort()
+
+	fmt.Print(res.String())
 	err = res.Graph(app.Config.HtmlFile)
 	if err != nil {
 		l.Error().Err(err).Msg("No se pudo graficar")
