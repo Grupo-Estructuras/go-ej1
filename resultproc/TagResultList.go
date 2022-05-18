@@ -59,12 +59,12 @@ func (resl *TagResultList) Graph(htmlname string) error {
 
 	l.Trace().Msg("Llenar datos")
 	taglist := resl.getTagList()
-	if len(taglist) > 10 {
-		taglist = taglist[0:10]
+	if len(taglist) > 20 {
+		taglist = taglist[0:20]
 	}
 	barlist := resl.getBars()
-	if len(barlist) > 10 {
-		barlist = barlist[0:10]
+	if len(barlist) > 20 {
+		barlist = barlist[0:20]
 	}
 	bar.SetXAxis(taglist).
 		AddSeries("Tags", barlist)
