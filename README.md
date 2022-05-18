@@ -1,7 +1,7 @@
 # GO
 
 ## Como configurar
-Toda la configuración se guarda en un archivo de formato yaml. Se puede ver un ejemplo de una configuración por defecto en resource/config/app.config
+Toda la configuración se guarda en un archivo de formato yaml. Se puede ver un ejemplo de una configuración por defecto en config/app.config
 
 
 Esta configuración permite:
@@ -11,7 +11,7 @@ Esta configuración permite:
 - Definir el archivo donde se guarda el resultado en texto
 
 Además se pueden pasar los siguientes parametros en consola:
-- ```-c <ARCHIVO CONFIGURACION>``` o ```--configfile <ARCHIVO CONFIGURACION>``` para el archivo de configuración. Por defecto se usa resource/config/app.config
+- ```-c <ARCHIVO CONFIGURACION>``` o ```--configfile <ARCHIVO CONFIGURACION>``` para el archivo de configuración. Por defecto se usa config/app.config
 - ```-l <LEVEL>``` o ```--loglevel <LEVEL>``` para el nivel de los logs mostrados. Por defecto se usa INFO. Las opciones son: ERROR, INFO, TRACE
 
 ## Como ejecutar

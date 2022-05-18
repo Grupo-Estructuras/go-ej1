@@ -42,8 +42,8 @@ func (app *Application) Configure(loglevelstr string) error {
 	app.Config.Scraper = scraping.GetDefaultScraperConfig(app.Logger)
 	app.Config.LangList = []string{}
 	app.Config.UseFixedList = false
-	app.Config.HtmlFile = "resource/grafo.html"
-	app.Config.ResultFile = "resource/resultado.txt"
+	app.Config.HtmlFile = "grafo.html"
+	app.Config.ResultFile = "resultado.txt"
 
 	l.Trace().Msg("Creando fileconfigstore")
 	fs := fileconfig.NewFileConfigstore(l, *app.ConfigFile)
@@ -59,7 +59,7 @@ func (app *Application) OpenGraph() error {
 	case "darwin":
 		args = []string{"open", app.Config.HtmlFile}
 	case "windows":
-		args = []string{"cmd", "/c", "start", app.Config.HtmlFile}
+		args = []string{"explorer", app.Config.HtmlFile}
 	default:
 		args = []string{"xdg-open", app.Config.HtmlFile}
 	}

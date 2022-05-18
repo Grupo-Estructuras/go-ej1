@@ -19,7 +19,7 @@ func NewFileConfigstore(logger zerolog.Logger, filename string) *FileConfigStore
 	var store FileConfigStore
 	store.logger = logger
 	store.filename = filename
-	store.swapFilename = filename + ".tmp~"
+	store.swapFilename = filename
 	return &store
 }
 
@@ -51,14 +51,15 @@ func (store *FileConfigStore) Load(configData interface{}) error {
 		store.logger.Trace().Str("method", "Load").Err(err).Msg("EXIT")
 		return err
 	}
-	defer file.Close()
 
 	decoder := yaml.NewDecoder(file)
 	if err := decoder.Decode(configData); err != nil {
 		store.logger.Error().Str("method", "Load").Str("file", store.filename).Msg("No se pudo crear archivo de configuración")
 		store.logger.Trace().Str("method", "Load").Err(err).Msg("EXIT")
+		file.Close()
 		return err
 	}
+	file.Close()
 
 	store.logger.Info().Str("method", "Load").Str("file", store.filename).Msg("Volviendo a guardar archivo para agregar nuevo parametros.")
 	if err := store.Save(configData); err != nil {
@@ -80,7 +81,7 @@ func (store *FileConfigStore) Save(configData interface{}) error {
 		return err
 	}
 
-	file, err := os.OpenFile(store.swapFilename, os.O_RDWR|os.O_CREATE, 0644)
+	file, err := os.OpenFile(store.swapFilename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		store.logger.Error().Str("method", "Save").Str("file", store.swapFilename).Err(err).Msg("No se pudo abrir archivo temporal")
 		store.logger.Trace().Str("method", "Save").Err(err).Msg("EXIT")
@@ -96,12 +97,6 @@ func (store *FileConfigStore) Save(configData interface{}) error {
 
 	if err := file.Close(); err != nil {
 		store.logger.Error().Str("method", "Save").Str("file", store.swapFilename).Err(err).Msg("No se pudo cerrar el archivo")
-		store.logger.Trace().Str("method", "Save").Err(err).Msg("EXIT")
-		return err
-	}
-
-	if err := os.Rename(store.swapFilename, store.filename); err != nil {
-		store.logger.Error().Str("method", "Save").Str("file", store.filename).Err(err).Msg("No se pudo cambiar el nombre del archivo")
 		store.logger.Trace().Str("method", "Save").Err(err).Msg("EXIT")
 		return err
 	}

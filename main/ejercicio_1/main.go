@@ -83,7 +83,7 @@ func run(app *app.Application) error {
 	}
 	err = app.OpenGraph()
 	if err != nil {
-		l.Error().Err(err).Msgf("No se pudo abrir archivo. Puede intentar abrir manualmente %v en su navegador.", app.Config.HtmlFile)
+		fmt.Printf("Para visualizar el resultado abre %v en su navegador.", app.Config.HtmlFile)
 		return err
 	}
 	return nil
