@@ -54,6 +54,9 @@ func run(app *app.Application) error {
 	l.Trace().Msg("Ordenando resultados")
 	res.TagSort()
 
+	l.Trace().Msg("Guardar resultados")
+	res.Save(app.Config.ResultFile)
+
 	l.Trace().Msg("Imprimir resultados")
 	fmt.Printf(res.String())
 

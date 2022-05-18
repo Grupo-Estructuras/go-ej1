@@ -136,3 +136,25 @@ func (resl *TagResultList) String() string {
 	}
 	return sb.String()
 }
+
+func (resl *TagResultList) Save(filename string) error {
+	l := resl.Logger.With().Str("method", "Save").Logger()
+
+	l.Trace().Msg("Abriendo archivo")
+	file, err := os.Create(filename)
+	if err != nil {
+		l.Error().Err(err).Msg("No se pudo abrir ni crear archivo!")
+		return err
+	}
+	defer file.Close()
+
+	l.Trace().Msg("Guardando resultando")
+	for _, res := range resl.results {
+		err = res.Save(file)
+		if err != nil {
+			l.Error().Err(err).Msg("No se pudo guardar resultado!")
+			return err
+		}
+	}
+	return nil
+}
