@@ -70,7 +70,6 @@ func run(app *app.Application) error {
 	app.OpenGraph()
 	if err != nil {
 		fmt.Printf("Para visualizar el resultado abre %v en su navegador.", app.Config.HtmlFile)
-		return err
 	}
 
 	l.Trace().Msg("Saliendo sin errores...")
